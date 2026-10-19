@@ -7,16 +7,22 @@ through tool arguments.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 READ_ONLY = "read_only"
 READ_WRITE = "read_write"
+READ_WRITE_SAVE = "read_write_save"
+MODES = (READ_ONLY, READ_WRITE, READ_WRITE_SAVE)
 
 
 def default_exchange_dir() -> Path:
+    """A per-user folder (not world-writable like C:\\Users\\Public), with no spaces."""
     if os.name == "nt":
-        return Path(os.environ.get("PUBLIC", r"C:\Users\Public")) / "altium_lite_mcp"
+        user = re.sub(r"[^A-Za-z0-9_.-]", "_", os.environ.get("USERNAME", "user"))
+        base = os.environ.get("PROGRAMDATA", r"C:\ProgramData")
+        return Path(base) / "altium_lite_mcp" / user
     return Path.home() / ".altium_lite_mcp"
 
 
@@ -27,12 +33,17 @@ class Config:
     exe_path: Path | None = None
     timeout_s: float = 60.0
     poll_interval_s: float = 0.5
+    cache_ttl_s: float = 5.0
     bridge: str = "altium"  # "altium" or "fake"
     warnings: tuple[str, ...] = ()
 
     @property
     def writable(self) -> bool:
-        return self.mode == READ_WRITE
+        return self.mode in (READ_WRITE, READ_WRITE_SAVE)
+
+    @property
+    def can_save(self) -> bool:
+        return self.mode == READ_WRITE_SAVE
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "Config":
@@ -40,7 +51,7 @@ class Config:
         warnings: list[str] = []
 
         mode = env.get("ALTIUM_LITE_MODE", READ_ONLY).strip().lower()
-        if mode not in (READ_ONLY, READ_WRITE):
+        if mode not in MODES:
             warnings.append(f"Unknown ALTIUM_LITE_MODE {mode!r}; using read_only.")
             mode = READ_ONLY
 
@@ -50,6 +61,7 @@ class Config:
             bridge = "altium"
 
         timeout_s = _float(env, "ALTIUM_LITE_TIMEOUT", 60.0, warnings, minimum=1.0)
+        cache_ttl_s = _float(env, "ALTIUM_LITE_CACHE_TTL", 5.0, warnings, minimum=0.0)
         exchange = env.get("ALTIUM_LITE_EXCHANGE_DIR")
         exe = env.get("ALTIUM_LITE_EXE")
 
@@ -58,6 +70,7 @@ class Config:
             exchange_dir=Path(exchange) if exchange else default_exchange_dir(),
             exe_path=Path(exe) if exe else None,
             timeout_s=timeout_s,
+            cache_ttl_s=cache_ttl_s,
             bridge=bridge,
             warnings=tuple(warnings),
         )

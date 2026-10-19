@@ -14,6 +14,17 @@ The DelphiScript has never run in Altium. Do these in order and record results. 
 | S6 | Repeat the demo in Claude Desktop (check the exchange folder is visible if Claude is the Microsoft Store/MSIX build) and Claude Code | Works in both |
 | S7 | Read Altium's EULA/trial terms on scripting | Note the result in the README |
 
+## Newer tools (check after the spikes pass)
+
+| Tool | Check |
+|---|---|
+| `altium_get_nets`, `altium_compile_messages` | Match Altium's connectivity and Messages panel |
+| `altium_rename_parameter`, `altium_delete_parameter` | Preview, apply, Ctrl+Z; `delete` uses the least certain API (`RemoveSchObject`) |
+| `altium_move_components` | Focus the PCB. Units (mil from board origin), rotation and one Ctrl+Z revert |
+| `altium_save_project` | Needs `read_write_save`. Only modified open sheets are saved; verify files on disk |
+| Closed sheets | Close a sheet; the edit is refused with a reason and `sheets` shows `open: false` |
+| Exchange folder | Check the ACL (`icacls`) shows only your user |
+
 Known open points in `Main.pas`: Altium version lookup returns `unknown`; closed sheets are skipped; undo grouping across sheets; every Altium API call is unverified.
 
 ## Demo (definition of done)

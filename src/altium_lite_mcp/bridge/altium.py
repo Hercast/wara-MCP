@@ -56,6 +56,48 @@ def find_x2_exe(program_files: Path = Path(r"C:\Program Files\Altium")) -> Path 
     return sorted(candidates, key=key)[-1]
 
 
+def x2_running() -> bool | None:
+    """Is X2.EXE running? None when it cannot be determined (non-Windows or tasklist failed)."""
+    if os.name != "nt":
+        return None
+    try:
+        out = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq X2.EXE", "/FO", "CSV", "/NH"],
+            capture_output=True, text=True, timeout=10, check=False,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return "x2.exe" in out.lower()
+
+
+def secure_exchange_dir(path: Path) -> list[str]:
+    """Create the exchange dir and restrict it to the current user. Returns warnings.
+
+    Request files decide what runs inside Altium, so other local users must not be
+    able to write there. On POSIX an unowned or foreign directory is refused.
+    """
+    path.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        user = os.environ.get("USERNAME")
+        if not user:
+            return ["Could not determine USERNAME; exchange folder permissions were not restricted."]
+        try:
+            subprocess.run(
+                ["icacls", str(path), "/inheritance:r", "/grant:r", f"{user}:(OI)(CI)F"],
+                capture_output=True, check=True, timeout=15,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return [f"Could not restrict permissions on {path}; make sure only your user can write there."]
+        return []
+    st = path.stat()
+    if st.st_uid != os.getuid():
+        err = AltiumError(E_ALTIUM_ERROR, f"Exchange folder {path} is owned by another user; refusing to use it.")
+        raise err
+    if st.st_mode & 0o077:
+        path.chmod(0o700)
+    return []
+
+
 def default_launcher(cmdline: str) -> None:
     # Passed as a single string on purpose: Altium parses its own command line,
     # and list2cmdline would escape the inner quotes.
@@ -65,15 +107,30 @@ def default_launcher(cmdline: str) -> None:
 class AltiumBridge(Bridge):
     name = "altium"
 
-    def __init__(self, config: Config, launcher: Callable[[str], None] | None = None):
+    def __init__(
+        self,
+        config: Config,
+        launcher: Callable[[str], None] | None = None,
+        process_check: Callable[[], bool | None] | None = None,
+    ):
         super().__init__()
         self.config = config
         self.exchange = config.exchange_dir
         self._launcher = launcher
+        # An injected launcher (tests) implies "Altium is running" unless told otherwise.
+        self._process_check = process_check or ((lambda: True) if launcher is not None else x2_running)
+        self._secured = False
+        self._warnings: list[str] = []
         self.exe_path = config.exe_path
         self._staged: Path | None = None
 
     # -- setup -------------------------------------------------------------
+    def running(self) -> bool | None:
+        return self._process_check()
+
+    def startup_warnings(self) -> list[str]:
+        return list(self._warnings)
+
     def _resolve_exe(self) -> Path | None:
         if self._launcher is not None:
             return self.exe_path or Path("X2.EXE")  # injected launcher (tests)
@@ -145,8 +202,17 @@ class AltiumBridge(Bridge):
         if exe is None:
             raise AltiumError(E_ALTIUM_NOT_FOUND, "Could not find Altium's X2.EXE.")
 
+        # Launching X2.EXE with no running Altium would start a new instance. Never do that.
+        if self._process_check() is False:
+            raise AltiumError(
+                E_ALTIUM_NOT_FOUND,
+                "Altium Designer is not running; the bridge will not start it.",
+            )
+
         with _lock:
-            self.exchange.mkdir(parents=True, exist_ok=True)
+            if not self._secured:
+                self._warnings = secure_exchange_dir(self.exchange)
+                self._secured = True
             self._cleanup()
             deadline = time.monotonic() + self.config.timeout_s
             lockfile = self._acquire_lockfile(deadline)
@@ -187,7 +253,9 @@ class AltiumBridge(Bridge):
             time.sleep(self.config.poll_interval_s)
 
         if parse_error:
-            raise AltiumError(E_ALTIUM_ERROR, f"Altium wrote an unreadable response: {parse_error}")
+            err = AltiumError(E_ALTIUM_ERROR, f"Altium wrote an unreadable response: {parse_error}")
+            err.wedges = True  # type: ignore[attr-defined]
+            raise err
         (self.exchange / "request.txt").unlink(missing_ok=True)
         raise AltiumError(E_TIMEOUT, f"No response from Altium within {self.config.timeout_s:g}s.")
 

@@ -27,7 +27,7 @@ def test_list_and_filters(service):
     assert [i["designator"] for i in d["items"]][:5] == ["C1", "C2", "C3", "D1", "R1"]
     assert "parameters" not in d["items"][0]
     miss = service.list_components(missing_parameter="mpn")
-    assert {i["designator"] for i in miss["items"]} == {"R1", "R2", "R3", "C2", "C3", "D1"}
+    assert {i["designator"] for i in miss["items"]} == {"R1", "R2", "R3", "C2", "D1"}
     assert service.list_components(designator_prefix="u")["total"] == 2
 
 

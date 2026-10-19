@@ -1,162 +1,160 @@
-# altium-lite-mcp
+# ⚡ Talk to your Altium schematic
 
-> **Experimental.** No support commitment. Unofficial, and not affiliated with or endorsed by Altium.
+**Ask an AI agent to review your design, find what's missing, and fix it, while Altium stays in your hands.**
 
-A small [MCP](https://modelcontextprotocol.io) server that lets Claude **read and audit** the Altium Designer project you have open (components, BOM, parameters, designators, nets) and make **small, reviewable edits**: schematic parameters (such as filling in missing `MPN` values) and PCB component moves. Every edit is previewed first and left unsaved in Altium, so Ctrl+Z undoes it. Saving to disk is a separate, opt-in mode.
+![status](https://img.shields.io/badge/status-experimental-orange) ![license](https://img.shields.io/badge/license-Apache--2.0-blue) ![python](https://img.shields.io/badge/python-3.12%2B-blue)
 
-```
-You: List the components and tell me which have no MPN.
-You: Set MPN to ABC-123 on R1 to R3.      -> preview of old/new values
-You: Apply it.                             -> written to Altium (unsaved), read back and verified
-```
+`altium-lite-mcp` connects Altium Designer to AI agents such as Claude through the [Model Context Protocol](https://modelcontextprotocol.io). Open a project, then just ask.
 
-Everything runs on **your Windows machine**: Claude, this server and Altium, connected over stdio. There is no cloud service, no telemetry and no network access from this code.
+> *"Which parts on the power sheet have no MPN?"*
+> *"Do any designators clash?"*
+> *"Fill in these MPNs, but show me first."*
 
-## Status: what is and isn't tested
+> **Experimental.** Unofficial and not affiliated with Altium. The server and its safety rules are tested; the Altium-side script is still being validated on real Altium installs, so expect rough edges. No support commitment.
 
-| Part | State |
+---
+
+## What you can do
+
+### 🔍 Review
+- Get an **overview** of a project: parts by type, footprints, sheets.
+- **Search** parts in plain language: "all 0603 caps", "everything from sheet Power".
+- Build a **BOM** summary, copy it as CSV.
+- **Audit** parameters: missing MPNs, same part with conflicting MPNs.
+- Catch **duplicate or unannotated designators** and numbering gaps.
+- See which **nets** a part touches, and read the project's **compile errors**.
+
+### ✏️ Edit, safely
+- Set, rename or delete **parameters**, one part or hundreds at once (even from a CSV).
+- **Move and rotate** parts on the PCB.
+- Optionally **save** the project, only if you allow it.
+
+### 🛡️ Built to be trusted with a real design
+| | |
 |---|---|
-| MCP server, tools, safety rules, file protocol | Implemented, covered by automated tests (using a fake Altium) |
-| DelphiScript that runs **inside Altium** (`src/altium_lite_mcp/scripts/altium/`) | **Written but never run against a real Altium.** It still has to be validated on a Windows machine with Altium (see [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)) |
-| Altium versions | Intended for 26.x; 25.x best-effort. Nothing verified yet |
-| Newer tools (`get_nets` pins, `compile_messages`, `delete_parameter`, `move_components`, `save_project`) | Use the least certain Altium API names; expect them to need fixes first |
+| **Read-only by default** | Nothing can change until you switch on edit mode yourself. The AI can't flip that switch. |
+| **Preview first** | Every edit shows old and new values before anything is written. |
+| **Checked afterwards** | After an edit, the value is read back from Altium and reported as verified. |
+| **Unsaved and undoable** | Changes stay in memory. Review them in Altium, then save, or press **Ctrl+Z**. |
+| **Local only** | Runs on your machine. No cloud service, no telemetry. |
 
-Expect to debug the Altium side on first use. The [fake mode](#try-it-without-altium) lets you try the whole flow without Altium.
+---
 
-## Tools
+## See it in action
 
-**Read and audit** (always available; reads use a 5 s cache, pass `refresh=true` to re-read):
+An example session (on the built-in demo design):
 
-| Tool | What it does |
-|---|---|
-| `altium_status` | Server mode, Altium version, open project, problems and how to fix them. Works when Altium is closed. |
-| `altium_list_components` | Components of the open project. Filter by designator prefix or a missing parameter (e.g. `MPN`). Paged. |
-| `altium_get_component` | Details and all parameters for 1 to 25 designators, optionally with pins and nets. |
-| `altium_find_components` | Search by text, wildcard or exact match in any field or a parameter, e.g. "0603 caps without an MPN". |
-| `altium_bom_summary` | BOM grouped by comment/footprint/library ref/parameter, with quantities. Optional CSV. Also available as the `altium://bom` resource. |
-| `altium_check_parameters` | Missing/blank required parameters, and groups with conflicting values (same part, different MPN). |
-| `altium_check_designators` | Duplicate, unannotated (`R?`) designators and numbering gaps. |
-| `altium_project_overview` | Counts by prefix, footprint and sheet; which sheets are open or modified. |
-| `altium_get_nets` | Nets on the pins of given components. |
-| `altium_compile_messages` | The project's compile errors and warnings (does not run ERC/DRC). |
+> **You:** Is Altium connected? Which project is open?
+> **Agent:** Connected. Project **Demo.PrjPcb** is open. The server is in **read-only** mode.
+>
+> **You:** Which components have no MPN?
+> **Agent:** Five: **R1, R2, R3, C2, D1**. R2 has the parameter but it's empty. I also noticed **C1 and C3** are both 100nF 0603 but have different MPNs. That may be intentional, or a mistake worth checking.
+>
+> **You:** Set the MPN on R1 to R3 to `DEMO-0001`.
+> **Agent:** I can't, because the server is read-only. Enable edit mode in the server settings and restart it.
+>
+> *(you switch to edit mode)*
+>
+> **You:** Set the MPN on R1 to R3 to `DEMO-0001`. Create the parameter where it's missing, and preview first.
+> **Agent:** Preview, nothing changed yet:
+> | Part | Old | New |
+> |---|---|---|
+> | R1 | *(none, will be created)* | DEMO-0001 |
+> | R2 | *(empty)* | DEMO-0001 |
+> | R3 | *(none, will be created)* | DEMO-0001 |
+>
+> **You:** Apply it.
+> **Agent:** Done and **verified**. The three values were read back from Altium. The sheet is modified but **not saved**; press Ctrl+Z in Altium to undo.
 
-**Edit** (need `read_write` mode; preview by default, `apply=true` writes, read-back verified, never saved):
+---
 
-| Tool | What it does |
-|---|---|
-| `altium_set_parameter` | Set parameters on up to 50 components. |
-| `altium_set_parameters_from_table` | Bulk set from CSV text (Designator column + one column per parameter), up to 500 cells. |
-| `altium_rename_parameter` | Rename a parameter on given components or everywhere. |
-| `altium_delete_parameter` | Delete a parameter on given components or everywhere (old values shown in the preview). |
-| `altium_move_components` | Move/rotate components on the open PCB (relative or absolute, in mil). |
+## Get started
 
-**Save** (needs `read_write_save` mode):
+### What you need
+- **For real use:** a Windows PC with Altium Designer and [Python 3.12+](https://www.python.org/downloads/), plus Claude Desktop or Claude Code.
+- **To just try it:** any Mac, Linux or Windows machine with Python 3.12+ and Claude Desktop. See [Try it without Altium](#try-it-without-altium).
 
-| Tool | What it does |
-|---|---|
-| `altium_save_project` | Save the open, modified sheets. `confirm=false` only lists what would be saved. |
-
-**Prompts:** `fill_missing_mpns` (never invents MPNs, previews before applying) and `audit_bom`.
-
-## Set it up locally
-
-You need Python 3.12+ and Git. On Windows, with Altium Designer installed and a project open.
-
-### 1. Get the code and install it
+### 1. Install
 
 ```bash
-git clone https://github.com/<owner>/altium-lite-mcp.git
-cd altium-lite-mcp
+git clone https://github.com/Hercast/wara-MCP.git
+cd wara-MCP
 python -m venv .venv
-.venv\Scripts\activate        # macOS/Linux: source .venv/bin/activate
-pip install -e .
+.venv\Scripts\activate
+pip install .
 ```
 
-(With [uv](https://docs.astral.sh/uv/) you can skip the clone and use `uvx --from git+https://github.com/<owner>/altium-lite-mcp altium-lite-mcp` as the command below.)
+On Mac/Linux, activate with `source .venv/bin/activate` instead. Use `pip install .` (not `-e`) and keep the environment **outside protected folders** such as `Documents` on macOS, or Claude Desktop won't be allowed to start it.
 
-Check it starts (it waits for an MCP client on stdin, press Ctrl+C to quit):
+### 2. Connect it to Claude
 
-```bash
-altium-lite-mcp
-```
-
-### 2. Add it to Claude
-
-**Claude Desktop**: edit `claude_desktop_config.json` (Settings > Developer > Edit Config) and add the server. Use the full path to the executable in your venv:
+**Claude Desktop:** open **Settings → Developer → Edit Config** and add this next to any servers you already have, using the real path to your install:
 
 ```json
 {
   "mcpServers": {
-    "altium": {
-      "command": "C:\\path\\to\\altium-lite-mcp\\.venv\\Scripts\\altium-lite-mcp.exe",
+    "wara": {
+      "command": "C:\\path\\to\\wara-MCP\\.venv\\Scripts\\altium-lite-mcp.exe",
       "env": { "ALTIUM_LITE_MODE": "read_only" }
     }
   }
 }
 ```
 
-Restart Claude Desktop.
+Quit and reopen Claude Desktop. The Altium tools appear in the tools menu.
 
-**Claude Code**:
-
-```bash
-claude mcp add altium -- C:\path\to\altium-lite-mcp\.venv\Scripts\altium-lite-mcp.exe
-```
-
-### 3. Enable edits (optional)
-
-The server is **read-only by default**. To allow the edit tools, set `ALTIUM_LITE_MODE` to `read_write` in the server's environment (the `env` block above, or `claude mcp add -e ALTIUM_LITE_MODE=read_write ...`) and restart the server. Use `read_write_save` to also allow `altium_save_project`. The model cannot change this setting.
-
-### 4. Try it
-
-Open a project in Altium Designer, then ask Claude: *"Is Altium connected? Which project is open?"*
-
-### Try it without Altium
-
-Set `ALTIUM_LITE_BRIDGE=fake` in the server's environment (works on macOS and Linux too). The server then talks to a built-in demo design with 10 components, some missing an `MPN`.
-
-### Configuration
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `ALTIUM_LITE_MODE` | `read_only` | `read_only`, `read_write` or `read_write_save` |
-| `ALTIUM_LITE_EXE` | auto-detected | Full path to Altium's `X2.EXE` (default search: `C:\Program Files\Altium\AD*\`) |
-| `ALTIUM_LITE_EXCHANGE_DIR` | `%PROGRAMDATA%\altium_lite_mcp\<user>` | Folder for request/response files and the log. Locked down to your user on first use. Keep it free of spaces. |
-| `ALTIUM_LITE_CACHE_TTL` | `5` | Seconds a read snapshot is reused (`0` disables) |
-| `ALTIUM_LITE_TIMEOUT` | `60` | Seconds to wait for Altium |
-| `ALTIUM_LITE_BRIDGE` | `altium` | `fake` for the demo design |
-
-## How it works
-
-Altium has no supported external API, so the server drives it the way other open-source Altium tools do: it writes a request file, launches a small DelphiScript project inside Altium with `X2.EXE -RScriptingSystem:RunScript(...)`, and reads the JSON response the script writes back. One request at a time.
-
-## Safety
-
-- **Read-only by default**; writes need `ALTIUM_LITE_MODE=read_write`, set outside the model's reach.
-- **Preview before apply.** Applied edits are read back and reported as `verified`.
-- **Never saves by default.** Edits stay in memory in Altium. Review, then save or press Ctrl+Z (once per affected sheet, and once per batch of 50 changes). Saving needs `read_write_save` and `confirm=true`.
-- **Per-user exchange folder.** Requests decide what runs inside Altium, so the folder is restricted to your user (not `C:\Users\Public`). The server never launches Altium itself: if `X2.EXE` is not running, calls fail fast.
-- **Design text is untrusted.** Component names, comments and values come from your files and may contain instructions aimed at the model. They are returned as data and length-limited, but treat results with care.
-- **Your design data goes to Claude** like any tool output. Do not use this with confidential designs unless that is acceptable to you.
-- Reserved parameters (`Designator`, `LibReference`, `Comment`, footprint and model links) cannot be edited. Parameters are only created if you pass `create_if_missing=true`.
-
-## Limits
-
-- Windows and one running Altium instance only.
-- Only components of the **compiled project** are read; only schematic parameters are written. The PCB is not updated until you run *Update PCB*.
-- Sheets must be **open in Altium** to be edited; edits to closed sheets are refused with a reason. PCB moves act on the focused PCB document.
-- Text values: at most 255 characters, characters up to U+00FF only.
-- A script error or modal dialog in Altium can stall the bridge. The server times out, blocks further writes and tells you how to recover ([docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)).
-- Altium's licence or trial terms on scripting have not been reviewed here. Check your own terms.
-
-## Development
+**Claude Code:**
 
 ```bash
-pip install -e ".[dev]"
-pytest
+claude mcp add wara -- C:\path\to\wara-MCP\.venv\Scripts\altium-lite-mcp.exe
 ```
 
-Tests use a fake bridge and an emulator of the DelphiScript side, so they run anywhere. Work happens on `develop`; `main` gets tagged releases.
+### 3. Ask away
+
+Open a project in Altium Designer and ask: *"Is Altium connected? Which project is open?"*
+
+### 4. Turn on editing (when you're ready)
+
+The server starts **read-only**. To let the agent make changes, set `ALTIUM_LITE_MODE` to `read_write` in the `env` block above and restart Claude Desktop. Use `read_write_save` if you also want the agent to be able to save, which still needs your confirmation each time.
+
+---
+
+## Try it without Altium
+
+No Altium? The server includes a small **demo design** (10 parts, some with missing MPNs) so you can try the whole flow, including the safe-edit steps. Add `"ALTIUM_LITE_BRIDGE": "fake"` to the `env` block:
+
+```json
+"env": { "ALTIUM_LITE_BRIDGE": "fake", "ALTIUM_LITE_MODE": "read_write" }
+```
+
+Then try the prompts from the session above. Everything is simulated, so nothing real is touched.
+
+---
+
+## Good prompts to start with
+
+| Goal | Ask |
+|---|---|
+| Orientation | "Give me an overview of this project." |
+| Find gaps | "Check MPN, Manufacturer and Value across the project. What's missing or inconsistent?" |
+| Housekeeping | "Check designators for duplicates, unannotated parts or gaps." |
+| Search | "Find all capacitors with a 0603 footprint." |
+| BOM | "Summarise the BOM by value and footprint, and give me the CSV." |
+| Wiring | "What nets are connected to U1?" |
+| Full audit | Use the `audit_bom` prompt from your agent's prompt menu. |
+| Fix with care | Use the `fill_missing_mpns` prompt, give it your list, and approve the preview. |
+
+---
+
+## Good to know
+
+- **Windows only for real Altium**, one running Altium instance.
+- Sheets you want to edit must be **open** in Altium.
+- Your design data is sent to your AI agent like any tool output. Avoid confidential designs unless that's acceptable to you.
+- The server never starts Altium; open it yourself first.
+- Stuck? See [troubleshooting](docs/TROUBLESHOOTING.md).
+
+More detail: [technical reference](docs/TECHNICAL.md) (all tools, settings, safety model, limits), [acceptance checklist](docs/ACCEPTANCE.md).
 
 ## License
 

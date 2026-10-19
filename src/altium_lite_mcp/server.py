@@ -73,7 +73,7 @@ def build_server(config: Config | None = None, bridge: Bridge | None = None) -> 
     config = config or Config.from_env()
     bridge = bridge or make_bridge(config)
     service = AltiumService(config, bridge)
-    mcp = FastMCP("altium-lite-mcp")
+    mcp = FastMCP("wara")
 
     async def run(tool: str, fn: Callable[[], Any]) -> dict[str, Any]:
         start = time.monotonic()
@@ -363,7 +363,7 @@ def build_server(config: Config | None = None, bridge: Bridge | None = None) -> 
 def main() -> None:
     config = Config.from_env()
     _setup_logging(config)
-    log.info("starting altium-lite-mcp %s protocol=%s mode=%s bridge=%s", __version__, PROTOCOL_VERSION, config.mode, config.bridge)
+    log.info("starting wara %s protocol=%s mode=%s bridge=%s", __version__, PROTOCOL_VERSION, config.mode, config.bridge)
     build_server(config).run()
 
 

@@ -1,10 +1,10 @@
-# ⚡ Talk to your Altium schematic
+# ⚡ wara: talk to your Altium schematic
 
 **Ask an AI agent to review your design, find what's missing, and fix it, while Altium stays in your hands.**
 
 ![status](https://img.shields.io/badge/status-experimental-orange) ![license](https://img.shields.io/badge/license-Apache--2.0-blue) ![python](https://img.shields.io/badge/python-3.12%2B-blue)
 
-`altium-lite-mcp` connects Altium Designer to AI agents such as Claude through the [Model Context Protocol](https://modelcontextprotocol.io). Open a project, then just ask.
+**wara** connects Altium Designer to AI agents such as Claude through the [Model Context Protocol](https://modelcontextprotocol.io). Open a project, then just ask.
 
 > *"Which parts on the power sheet have no MPN?"*
 > *"Do any designators clash?"*
@@ -94,7 +94,7 @@ On Mac/Linux, activate with `source .venv/bin/activate` instead. Use `pip instal
 {
   "mcpServers": {
     "wara": {
-      "command": "C:\\path\\to\\wara-MCP\\.venv\\Scripts\\altium-lite-mcp.exe",
+      "command": "C:\\path\\to\\wara-MCP\\.venv\\Scripts\\wara-mcp.exe",
       "env": { "ALTIUM_LITE_MODE": "read_only" }
     }
   }
@@ -106,7 +106,7 @@ Quit and reopen Claude Desktop. The Altium tools appear in the tools menu.
 **Claude Code:**
 
 ```bash
-claude mcp add wara -- C:\path\to\wara-MCP\.venv\Scripts\altium-lite-mcp.exe
+claude mcp add wara -- C:\path\to\wara-MCP\.venv\Scripts\wara-mcp.exe
 ```
 
 ### 3. Ask away

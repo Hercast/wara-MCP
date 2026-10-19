@@ -1,4 +1,4 @@
-{ altium-lite-mcp DelphiScript project, request/response helpers.
+{ wara DelphiScript project, request/response helpers.
   Apache-2.0. EXPERIMENTAL and UNTESTED against a real Altium install.
 
   Requests are key=value lines (read with TStringList.Values), values are

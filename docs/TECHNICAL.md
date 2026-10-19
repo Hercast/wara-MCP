@@ -51,7 +51,7 @@ Set these in the MCP server's environment (the `env` block in the client config)
 Altium has no supported external API, so the server drives it the way other open-source Altium tools do: it writes a request file, launches a small DelphiScript project inside Altium with `X2.EXE -RScriptingSystem:RunScript(...)`, and reads the JSON response the script writes back. One request at a time. Requests are plain `key=value` lines (ASCII-escaped); responses are JSON. Only integers cross the wire for coordinates and angles.
 
 ```
-MCP client (Claude, ...)  --stdio-->  altium-lite-mcp (Python)
+MCP client (Claude, ...)  --stdio-->  wara-mcp (Python)
                                          |  request file + X2.EXE -R...
                                          v
                                    Altium Designer (DelphiScript project)

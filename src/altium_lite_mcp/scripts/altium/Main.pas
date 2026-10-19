@@ -1,4 +1,4 @@
-{ altium-lite-mcp DelphiScript project, dispatcher and commands.
+{ wara DelphiScript project, dispatcher and commands.
   Apache-2.0. EXPERIMENTAL and UNTESTED against a real Altium install.
 
   Run via: X2.EXE -RScriptingSystem:RunScript(ProjectName="...\Altium_Lite.PrjScr"|ProcName="Main>Run")

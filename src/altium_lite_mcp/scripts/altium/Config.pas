@@ -1,4 +1,4 @@
-{ altium-lite-mcp DelphiScript project, constants.
+{ wara DelphiScript project, constants.
   Apache-2.0. EXPERIMENTAL and UNTESTED against a real Altium install.
   The server replaces @@EXCHANGE_DIR@@ when it stages this folder.
   Keep ScriptVersion / ProtocolVersion in sync with src/altium_lite_mcp/__init__.py. }

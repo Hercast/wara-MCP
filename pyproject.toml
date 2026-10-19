@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "altium-lite-mcp"
+name = "wara-mcp"
 version = "0.1.0"
-description = "Experimental MCP server that lets an LLM read and make small edits to an open Altium Designer project (Windows)."
+description = "wara: experimental MCP server that lets an AI agent review and edit an open Altium Designer project (Windows)."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.12"
@@ -18,7 +18,8 @@ dependencies = [
 dev = ["pytest>=8", "pytest-asyncio>=0.23"]
 
 [project.scripts]
-altium-lite-mcp = "altium_lite_mcp.server:main"
+wara-mcp = "altium_lite_mcp.server:main"
+altium-lite-mcp = "altium_lite_mcp.server:main"  # legacy alias
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/altium_lite_mcp"]

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "wara-mcp"
 version = "0.1.0"
-description = "wara: experimental MCP server that lets an AI agent review and edit an open Altium Designer project (Windows)."
+description = "wara: alpha MCP server that lets an AI agent review and edit an open Altium Designer project (Windows)."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.12"

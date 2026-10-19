@@ -2,7 +2,7 @@
 
 **Ask an AI agent to review your design, find what's missing, and fix it, while Altium stays in your hands.**
 
-![status](https://img.shields.io/badge/status-experimental-orange) ![license](https://img.shields.io/badge/license-Apache--2.0-blue) ![python](https://img.shields.io/badge/python-3.12%2B-blue)
+![status](https://img.shields.io/badge/status-alpha-orange) ![license](https://img.shields.io/badge/license-Apache--2.0-blue) ![python](https://img.shields.io/badge/python-3.12%2B-blue)
 
 **wara** connects Altium Designer to AI agents such as Claude through the [Model Context Protocol](https://modelcontextprotocol.io). Open a project, then just ask.
 
@@ -10,7 +10,7 @@
 > *"Do any designators clash?"*
 > *"Fill in these MPNs, but show me first."*
 
-> **Experimental.** Unofficial and not affiliated with Altium. The server and its safety rules are tested; the Altium-side script is still being validated on real Altium installs, so expect rough edges. No support commitment.
+> **Alpha.** Unofficial and not affiliated with Altium. The server and its safety rules are tested; the Altium-side script is still being validated on real Altium installs, so expect rough edges. No support commitment.
 
 ---
 

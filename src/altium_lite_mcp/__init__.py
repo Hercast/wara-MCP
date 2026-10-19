@@ -1,4 +1,4 @@
-"""wara: experimental MCP server for Altium Designer."""
+"""wara: alpha MCP server for Altium Designer."""
 
 __version__ = "0.1.0"
 

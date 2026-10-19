@@ -4,3 +4,6 @@ __pycache__/
 .pytest_cache/
 dist/
 build/
+
+# Internal planning notes
+ALTIUM_MCP_MVP_PLAN.md
